@@ -1,5 +1,7 @@
 #include <iostream>
+#include <string>
 #include <vector>
+#include <algorithm>
 
 using namespace std;
 
@@ -57,20 +59,34 @@ bool isValid(int x, int y, vector<vector<Cell>> const& map) {
 
 int main() {
     srand(0);
-    cerr << MAP_WIDTH << " " << MAP_HEIGHT << endl;
+    //cerr << MAP_WIDTH << " " << MAP_HEIGHT << endl;
     vector<vector<Cell>> map (MAP_WIDTH, vector<Cell> (MAP_HEIGHT));
+    
+    int numberMineSpots;
+    cin >> numberMineSpots; cin.ignore();
+    for (int i = 0; i < numberMineSpots; i++) {
+        int x;
+        int y;
+        cin >> x >> y; cin.ignore();
+    }
+
     while (1) {
         int gold;
         cin >> gold; cin.ignore();
+        cerr << "gold: " << gold << endl;
         int income, opponentGold, opponentIncome;
         cin >> income; cin.ignore();
         cin >> opponentGold; cin.ignore();
         cin >> opponentIncome; cin.ignore();
+        // cerr << "gold = " << gold << endl;
+        // cerr << "income = " << income << endl;
+        // cerr << "opponentGold = " << opponentGold << endl;
+        // cerr << "opponentIncome = " << opponentIncome << endl;
 
-        
         for (int y = 0; y < MAP_HEIGHT; ++y) {
             string line;
             getline(cin, line);
+            // cerr << "line = " << line << endl;
             for (int x = 0; x < MAP_WIDTH; ++x) {
                 map[x][y].x = x;
                 map[x][y].y = y;
@@ -88,12 +104,12 @@ int main() {
                 else
                     owner = 1;
                 map[x][y].owner = owner;
-                cerr << map[x][y].owner << " ";
+                //cerr << map[x][y].owner << " ";
 
             }
-            cerr << endl;
+            //cerr << endl;
         }
-        cerr << endl;
+        //cerr << endl;
 
         for (int y = 0; y < MAP_HEIGHT; ++y) {
             for (int x = 0; x < MAP_WIDTH; ++x) {
@@ -105,8 +121,8 @@ int main() {
         }
 
         int buildingCount;
-        cin >> buildingCount;
-        cerr << "buildingCount count: " << buildingCount << endl;
+        cin >> buildingCount; cin.ignore();
+        //cerr << "buildingCount = " << buildingCount << endl;
 
         vector<Building> buildings;
         buildings.reserve(buildingCount);
@@ -117,7 +133,7 @@ int main() {
         for (int i = 0; i < buildingCount; ++i) {
             Building building;
             cin >> building.owner >> building.type >> building.x >> building.y; cin.ignore();
-            cerr << building.owner << " " << building.type << " " << building.x << " " << building.y << endl;
+            //cerr << building.owner << " " << building.type << " " << building.x << " " << building.y << endl;
             
             buildings.push_back(building);
             map[building.x][building.y].occupied = true;
@@ -138,24 +154,24 @@ int main() {
         }
 
         if (enemyHQ.x == -1) {
-            cerr << "no eneymy hq\n";
+            cerr << "no enemy hq\n";
         }
         int unitCount;
-        cin >> unitCount;
-        cerr << "unit count: " << unitCount << endl;
+        cin >> unitCount; cin.ignore();
+        //cerr << "unitCount = " << unitCount << endl;
 
         vector<Unit> units;
         units.reserve(unitCount);
         for (int i = 0; i < unitCount; ++i) {
             Unit unit;
             cin >> unit.owner >> unit.id >> unit.level >> unit.x >> unit.y; cin.ignore();
-            cerr << unit.owner << " " << unit.id << " " << unit.level << " " << unit.x << " " << unit.y << endl;
+            //cerr << unit.owner << " " << unit.id << " " << unit.level << " " << unit.x << " " << unit.y << endl;
             units.push_back(unit);
             map[unit.x][unit.y].occupied = true;
             map[unit.x][unit.y].unit = &units.back();
         }
 
-        cerr << "finished reading" << endl;
+        //cerr << "finished reading" << endl;
         bool first = true;
 
         int actionsMade = 0;
@@ -169,9 +185,9 @@ int main() {
             ++myUnits;
             int score = -1000;
             int bestDir = -1;
-            Cell const& cell = map[unit.x][unit.y];
+            Cell const& cell = map[unit.x][unit.y]; // get cell pointer of unit
             for (int dir = 0; dir < 4; ++dir) {
-                Cell* neighbour = cell.neighbours[dir];
+                Cell* neighbour = cell.neighbours[dir]; // get cell pointer to neigbour cell on dir
                 // impossible move
                 if (neighbour == nullptr || (neighbour->owner == 0 && neighbour->occupied)) {
                     continue;
@@ -313,10 +329,12 @@ int main() {
                     if (map[x][y].owner == VOID || map[x][y].owner == 0)
                         continue;
                     bool can = false;
+                    // cell on border
                     for (int dir = 0; dir < 4; ++dir)
                         if (map[x][y].neighbours[dir] != nullptr && map[x][y].neighbours[dir]->owner == 0)
                             can = true;
-                    if (map[x][y].unit != nullptr) {
+                    // enemy on cell
+                    if (map[x][y].unit != nullptr) { 
                         int enLevel = map[x][y].unit->level;
                         if (enLevel >= 2 && gold < 30) {
                             can = false;
@@ -324,6 +342,7 @@ int main() {
                             can = false;
                         }
                     }
+                    // enemy tower on cell
                     if (map[x][y].building != nullptr && map[x][y].building->type == TOWER && gold < 20) {
                         can = false;
                     }
