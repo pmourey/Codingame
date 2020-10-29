@@ -21,8 +21,6 @@ vector<vector<PieceColor> > board(boardSize, vector<PieceColor>(boardSize)); // 
 class PieceGroup
 {
 public:
-    static int boardSize;
-
     PieceGroup(PieceColor col) { color = col; }
 
     PieceGroup(int x, int y, PieceColor col)
@@ -357,19 +355,20 @@ private:
 
 int main()
 {
-    cin >> boardSize;
-    cin.ignore();
+    // cin >> S; cin.ignore();
+    boardSize = 5; // the size of the board
     Board b = Board();
 
     int M; // the number of moves to be made
-    cin >> M;
-    cin.ignore();
+    M = 5;
+    // cin >> M; cin.ignore();
     for (int i = 0; i < boardSize; i++)
     {
         for (int y = 0; y < boardSize; ++y)
         {
             string row;
-            getline(cin, row); // a single row in the input board
+            // getline(cin, row); // a single row in the input board
+            row = ".....";
             for (int x = 0; x < boardSize; ++x)
             {
                 char data = row[x];
@@ -378,10 +377,17 @@ int main()
                 else if (data == 'W')
                     b.placePiece(x, y, WHITE);
             }
+            vector<string> moves;
+            moves.push_back("B 2 2");
+            moves.push_back("W 2 3");
+            moves.push_back("B 3 2");
+            moves.push_back("W 3 4");
+            moves.push_back("B 4 3");
             for (int i = 0; i < M; i++)
             {
                 string move;
-                getline(cin, move); // a strng representation of a move
+                // getline(cin, move); // a strng representation of a move
+                move = moves[i];
                 int color = move[0];
                 int x = move[2];
                 int y = move[4];
