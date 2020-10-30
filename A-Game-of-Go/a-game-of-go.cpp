@@ -3,9 +3,6 @@
 #include <string>
 #include <vector>
 
-#include <iostream>
-#include <vector>
-
 using namespace std;
 
 enum PieceColor
@@ -15,18 +12,18 @@ enum PieceColor
     BLACK
 };
 
-int boardSize;
-vector<vector<PieceColor> > board(boardSize, vector<PieceColor>(boardSize)); // the board
-
 class PieceGroup
 {
 public:
-    static int boardSize;
-
-    PieceGroup(PieceColor col) { color = col; }
-
-    PieceGroup(int x, int y, PieceColor col)
+    PieceGroup(PieceColor col, int boardSize)
     {
+        color = col;
+        boardSize = boardSize;
+    }
+
+    PieceGroup(int x, int y, PieceColor col, int boardSize)
+    {
+        boardSize = boardSize;
         color = col;
         locations.push_back(y * boardSize + x); // easier than storing two different
                                                 // numbers
@@ -115,13 +112,15 @@ public:
 private:
     std::vector<int> locations;
     PieceColor color;
+    int boardSize;
 };
 
 class Board
 {
 public:
-    Board()
+    Board(int boardSize)
     {
+        boardSize = boardSize;
         for (int i = 0; i < boardSize; ++i)
         {
             for (int j = 0; j < boardSize; ++j)
@@ -181,7 +180,7 @@ public:
     {
         // if there are no groups, create one
         if (groups.size() <= 0)
-            groups.push_back(PieceGroup(x, y, c));
+            groups.push_back(PieceGroup(x, y, c, boardSize));
 
         else
         {
@@ -202,12 +201,12 @@ public:
 
             // if there are no connections, add the piece as a group
             if (connections.size() <= 0)
-                groups.push_back(PieceGroup(x, y, c));
+                groups.push_back(PieceGroup(x, y, c, boardSize));
 
             // otherwise add it to the groups and combine them
             else
             {
-                PieceGroup temp = PieceGroup(c); // initialize an empty group
+                PieceGroup temp = PieceGroup(c, boardSize); // initialize an empty group
 
                 temp.addPiece(x, y); // add the piece to the group
 
@@ -347,6 +346,10 @@ public:
 private:
     std::vector<PieceGroup> groups;
     // PieceColor board[19][19];
+    //vector<vector<PieceColor> > board(boardSize, vector<PieceColor> (boardSize)); // the board
+    int boardSize;
+    vector<vector<PieceColor>> board; // the board
+    //vector<vector<Cell>> map (MAP_WIDTH, vector<Cell> (MAP_HEIGHT));
     PieceColor turn;
 };
 
@@ -357,45 +360,43 @@ private:
 
 int main()
 {
+    int boardSize;
     cin >> boardSize;
     cin.ignore();
-    Board b = Board();
+    Board *b = new Board(boardSize);
 
     int M; // the number of moves to be made
     cin >> M;
     cin.ignore();
-    for (int i = 0; i < boardSize; i++)
+    for (int y = 0; y < boardSize; ++y)
     {
-        for (int y = 0; y < boardSize; ++y)
+        string row;
+        getline(cin, row); // a single row in the input board
+        for (int x = 0; x < boardSize; ++x)
         {
-            string row;
-            getline(cin, row); // a single row in the input board
-            for (int x = 0; x < boardSize; ++x)
-            {
-                char data = row[x];
-                if (data == 'B')
-                    b.placePiece(x, y, BLACK);
-                else if (data == 'W')
-                    b.placePiece(x, y, WHITE);
-            }
-            for (int i = 0; i < M; i++)
-            {
-                string move;
-                getline(cin, move); // a strng representation of a move
-                int color = move[0];
-                int x = move[2];
-                int y = move[4];
-                if (color == 'B')
-                    b.placePiece(x, y, BLACK);
-                else if (color == 'W')
-                    b.placePiece(x, y, WHITE);
-            }
-
-            // Write an answer using cout. DON'T FORGET THE "<< endl"
-            // To debug: cerr << "Debug messages..." << endl;
-            b.printDebug();
-            return 0;
-            cout << "NOT_VALID | <<the_board_after_the_moves>>" << endl;
+            char data = row[x];
+            if (data == 'B')
+                b->placePiece(x, y, BLACK);
+            else if (data == 'W')
+                b->placePiece(x, y, WHITE);
         }
     }
+    for (int i = 0; i < M; i++)
+    {
+        string move;
+        getline(cin, move); // a strng representation of a move
+        int color = move[0];
+        int x = move[2];
+        int y = move[4];
+        if (color == 'B')
+            b->placePiece(x, y, BLACK);
+        else if (color == 'W')
+            b->placePiece(x, y, WHITE);
+    }
+
+    // Write an answer using cout. DON'T FORGET THE "<< endl"
+    // To debug: cerr << "Debug messages..." << endl;
+    b->printDebug();
+    return 0;
+    cout << "NOT_VALID | <<the_board_after_the_moves>>" << endl;
 }
