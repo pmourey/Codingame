@@ -11,10 +11,12 @@
 #include <algorithm>
 #include <chrono>
 #include <bits/stdc++.h>
+#include <exception>
+
 
 using namespace std;
 
-//#define DEBUG
+#define DEBUG
 
 #ifdef DEBUG
 #include <fstream>
@@ -25,13 +27,13 @@ ifstream Inputfile;
 
 #endif  //#ifdef DEBUG
 
-const int TIMEOUT_MS = 50;
+int timeoutMS = 1000;
 
 uint64_t start;
 
 int loop_elapsed = 0;
-int maxDepth = 5;
-int nodeCount = 0;
+int maxDepth = 7;
+long nodeCount = 0;
 
 void debug(string message)
 {
@@ -87,17 +89,17 @@ void LevelOrderTraversal(Node * root)
             // Dequeue an item from queue and print it 
             Node * p = q.front(); 
             q.pop();
-            cout << p->lastActionId << " -> ";
+            cerr << p->lastActionId << " -> ";
             for (int i=0;i<12;i++)
-                cout << p->seeds[i] << " "; 
-   
+                cerr << p->seeds[i] << " "; 
+            cerr << "| ";
             // Enqueue all children of the dequeued item 
             for (int i=0; i<p->children.size(); i++) 
                 q.push(p->children[i]); 
             n--; 
         } 
    
-        cout << endl; // Print new line between two levels 
+        cerr << endl; // Print new line between two levels 
     } 
 } 
 
@@ -118,10 +120,11 @@ int miniMax(Node *node, int depth, bool maximizingPlayer)
     {
         value = 10000;
         for (int i=0; i < node->children.size(); i++)
-            value = min(value, miniMax(node->children[i], depth - 1, false));
+            value = min(value, miniMax(node->children[i], depth - 1, true));
         return value;
     }
 }
+
 
 int alphaBeta(Node *node, int i) {
     // si nœud est une feuille alors
@@ -137,7 +140,7 @@ int alphaBeta(Node *node, int i) {
         for (int i=0; i < node->children.size(); i++)
         {
             j = max(j, alphaBeta(node->children[i], j));
-            if (-j < i)
+            if (-j <= i)
                 return -j;
             return -j;
         }
@@ -153,9 +156,11 @@ void throwIfTimeout(int curMaxDepth)
 {
     uint64_t elapsed = millis() - start;
 
-    if (elapsed >= TIMEOUT_MS)
+    //if (elapsed >= TIMEOUT_MS || curMaxDepth > maxDepth)
+    if (elapsed >= timeoutMS)
     {
-        debug("Elapsed ( " + (to_string(elapsed)) + " > " + to_string(TIMEOUT_MS) + " ms) with finished depth " + to_string(curMaxDepth - 1));
+        debug("Elapsed ( " + (to_string(elapsed)) + " > " + to_string(timeoutMS) + " ms) with finished depth " + to_string(curMaxDepth - 1));
+        //throw runtime_error("No more time or maxDepth reached: " + to_string(maxDepth));
         throw runtime_error("No more time");
     }
 }
@@ -202,6 +207,7 @@ int evaluate(vector<int> const& seeds) {
 Action getActionScore(int id, vector<int> const& seeds)
 {
     Action actionScoreResult;
+    actionScoreResult.lastActionId = id;
     vector<int> newSeeds(12);
     newSeeds = seeds;
     int s = newSeeds[id];
@@ -209,40 +215,33 @@ Action getActionScore(int id, vector<int> const& seeds)
     int score = 0;
     int captures = 0;
     int consecutiveCaptures = 0;
-    // holes_hit = []
     int j = id;
     for (int i = 0; i < s; i++) {
         j = (i == 11) ? (j + 2) % 12 : (j + 1) % 12;
         newSeeds[j] += 1;
     }
-    // if (std::binary_search(v.begin(), v.end(), key))
     while (6 <= j and j < 12 and (newSeeds[j] == 2 or newSeeds[j] == 3)) {
         captures += newSeeds[j];
         newSeeds[j] = 0;
         j += 1;
         consecutiveCaptures += 1;
-        // holes_hit.append(j)
     }
+    int mySum, opSum, myNewSum, opNewSum;
+    mySum = sum(seeds, 0, 5);
+    myNewSum = sum(newSeeds, 0, 5);
+    opSum = sum(seeds, 6, 11);
+    opNewSum = sum(newSeeds, 6, 11); 
+    score -= opNewSum - opSum - captures;
+    if (opNewSum == 0) {
+        actionScoreResult.score = -1000;
+        actionScoreResult.seeds = newSeeds;
+        return actionScoreResult;
+    }
+    if ((opSum == 0 && opNewSum > 0) || (mySum > 0 and myNewSum == 0))
+        score += 100;
     score += captures * 2 + consecutiveCaptures;
-    // Attaquer simultanément deux trous ou plus de l'adversaire; afin que l adversaire ne puisse pas éviter la capture ultérieure de ses graines.
-    // score += consec_captures
-    // Gagner du temps est une tactique importante dans la gestion consistant à forcer l'adversaire à fournir des graines au joueur afin d'obtenir un avantage stratégique.
-    // seeds_given = sum(new_seeds[6:]) - sum(seeds[6:])
-    score -= sum(newSeeds, 6, 11) - sum(seeds, 6, 11) - captures;
-    // Amasser des graines sur le propre territoire du joueur en les semant dans les fosses de l'adversaire uniquement en petites quantités.
-    // Forçant ainsi l'adversaire à faire des gestes non favorables à ses intérêts.'''
-    // old_small_holes = sum([i for i, v in enumerate(seeds) if v <= 1 and i in holes_hit and i >= 6])
-    // new_small_holes = sum([i for i, v in enumerate(new_seeds) if v <= 1 and i in holes_hit and i >= 6])
-    // score += new_small_holes - old_small_holes
-    // if (sum(newSeeds, 6, 11) == 0) {
-    //     actionScoreResult.score = -1000;
-    //     actionScoreResult.seeds = newSeeds;
-    //     return actionScoreResult;
-    // }
-    // else if ((sum(seeds, 6, 11) == 0 && sum(newSeeds, 6, 11)) || (sum(seeds, 0, 5) && sum(newSeeds, 0, 5) == 0))
-    //     score += 100;
-    //reverse_copy(newSeeds.begin(), newSeeds.end(), newSeeds2.begin());
     score += evaluate(newSeeds) - evaluate(reverse(newSeeds));
+    score += 1;
     actionScoreResult.score = score;
     actionScoreResult.seeds = newSeeds;
     return actionScoreResult;
@@ -258,26 +257,30 @@ void buildGraph(Node *node) {
         vector<int> evalResult;
         for (int i = 0; i < 6; i++)
             if (node->seeds[i] > 0) {
-                // cerr << "getActionScore call" <<endl;
                 Action action = getActionScore(i, node->seeds);
                 if (action.score >= -100)
                     actions.push_back(action);
             }
         if (actions.empty())
             return;
-        vector<int> revSeeds = reverse(node->seeds);
         for (int i = 0; i < actions.size(); i++) {
-            Node *childNode = newNode(revSeeds, i, node->depth + 1, actions[i].score, actions[i].score);
+            Node *childNode = newNode(reverse(actions[i].seeds), actions[i].lastActionId, node->depth + 1, actions[i].score, actions[i].score);
             nodeCount += 1;
             (node->children).push_back(childNode); 
-            // cerr << "Hello world buildGraph" <<endl;
             buildGraph(childNode);
         }
     }
     catch (const runtime_error &e)
     {
-        // nothing to do
+        // Do nothing
     }
+}
+
+string vector_to_str(vector<int> const& seeds) {
+    string str;
+    for (int i=0;i<12;i++)
+        str += to_string(seeds[i]) + " ";
+    return str;
 }
 
 /**
@@ -295,72 +298,110 @@ int main()
 
     srand(time(0));
 
-    uint64_t start = millis();
+    uint64_t start;
 
-    int maxDepth = 5;
     // game loop
     bool is_start = true;
     while (is_start) {
+        nodeCount = 0;
         start = millis();
         vector<int> seeds(12);
         for (int i = 0; i < 12; i++) {
             int s;
             cin >> s; cin.ignore();
-            cerr << s << " ";
             seeds[i] = s;
         }
-
-        Node *root = newNode(seeds, -1, 0, 0, 0); 
+        cerr << vector_to_str(seeds) <<endl;
+        Node *root = newNode(seeds, 0, 0, 0, 0); 
         buildGraph(root);
+        #ifdef DEBUG
+        cerr << "Tree pring disabled" <<endl;
         //LevelOrderTraversal(root);
-        // eprint(tree)
+        #endif // #ifdef DEBUG
 
         vector<Node *> actionsCandidates;
         vector<Node *> nodeSelection;
-        Node *best_node;
-        int value, bestScore;
-        int max_value = 0;
-        int min_value = -90;
+        Node *bestNode;
+        int value, bestScore, bestValue;
+        int max_value = -1000;
+        int min_value;
         int action;
         for (int i = 0; i < root->children.size(); i++) {
             Node *node = root->children[i];
-            //value = miniMax(node, maxDepth, true);
-            value = alphaBeta(node, min_value);
-            if (value >= max_value) {
+            value = miniMax(node, maxDepth, true);
+            min_value = -1000;
+            //value = alphaBeta(node, min_value);
+            if (value > max_value) {
                 max_value = value;
                 node->value = value;
                 actionsCandidates.push_back(node);
+                bestNode = node;
             }
         }
-        cerr << "Max value: " << max_value <<endl;
+        for (int i = 0; i < root->children.size(); i++)
+            cerr << "root action: " << root->children[i]->lastActionId << " - Seeds : " << vector_to_str(reverse(root->children[i]->seeds)) << " - Score: " << root->children[i]->score << " - Value: " << root->children[i]->value <<endl;
 
-        if (actionsCandidates.empty())  // no IA solution given in time, select best move by default
-            if (!root->children.empty()) {
+        cerr << "Max value: " << bestNode->value <<endl;
+
+        //if (actionsCandidates.size() == 0)  // no IA solution given in time, select best move by default
+        if (bestNode == nullptr)  // no IA solution given in time, select best move by default
+            //if (!root->children.empty()) {
+            if (root->children.size() > 0) {
                 bestScore = maxValue(root->children);
+                cerr << "Min Max Failed - bestScore = " << bestScore <<endl;
                 /* eprint("Min Max Failed - Action : {} - Score = {} - cpu_time: {:.2f} ms".format(best_node.last_action_id, best_node.score, elapsed_time)) */
                 for (int i = 0; i < root->children.size(); i++) {
                     if (root->children[i]->score == bestScore)
                         nodeSelection.push_back(root->children[i]);
-                Node *bestNode = nodeSelection[rand() % nodeSelection.size()];
                 }
+                cerr << "root->children.size() = " << (root->children).size() <<endl;
+                cerr << "nodeSelection.size() = " << nodeSelection.size() <<endl;
+                bestNode = nodeSelection[rand() % nodeSelection.size()];
+                cerr << "PROUT" <<endl;
+                action = bestNode->lastActionId;
+                cerr << "no IA solution given in time, select best move by default" << endl;
+                cerr << "action: " << bestNode->lastActionId << " - Seeds : " << vector_to_str(reverse(bestNode->seeds)) << endl;
             }
             else {
                 vector<int> randActionList;
                 for (int i = 6; i < 12; i++)
-                    if (seeds[i])
+                    if (seeds[i] > 0)
                         randActionList.push_back(i);
-                int action = randActionList[rand() % randActionList.size()];
+                action = randActionList[rand() % randActionList.size()];
+                cerr << "There was a bug!" <<endl;
             }
-        else {
-            bestScore = maxValue(actionsCandidates); // à debugger
-            vector<Node *> nodeSelectionFinal;
-            for (int i = 0; i < actionsCandidates.size(); i++)
-                if (actionsCandidates[i]->score == bestScore)
-                    nodeSelectionFinal.push_back(actionsCandidates[i]);
-            action = nodeSelectionFinal[rand() % nodeSelectionFinal.size()]->lastActionId;
+        else
+        {
+            action = bestNode->lastActionId;
         }
-        cout << action <<endl;
+        
+        // else {
+        //     bestValue = maxValue(actionsCandidates); // à debugger
+        //     cerr << "bestValue = " << bestValue <<endl;
+        //     vector<Node *> nodeSelectionFinal;
+        //     for (int i = 0; i < actionsCandidates.size(); i++) {
+        //         //cerr << i << " - score: " << actionsCandidates[i]->score <<endl;
+        //         if (actionsCandidates[i]->value == bestValue)
+        //             nodeSelectionFinal.push_back(actionsCandidates[i]);
+        //     }
+        //     //cerr << "nodeSelectionFinal.size() = " << nodeSelectionFinal.size() <<endl;
+        //     if (nodeSelectionFinal.empty()) {
+        //         vector<int> randActionList;
+        //         for (int i = 0; i < 6; i++)
+        //             if (seeds[i] > 0)
+        //                 randActionList.push_back(i);
+        //         action = randActionList[rand() % randActionList.size()];
+        //         cerr << "There was a bug!" <<endl;
+        //     }
+        //     else {
+        //         bestNode = nodeSelectionFinal[rand() % nodeSelectionFinal.size()];
+        //         action = bestNode->lastActionId;
+        //         cerr << "Min Max action: " << bestNode->lastActionId << " - Value: " << bestNode->value << " - Seeds : " << vector_to_str(reverse(bestNode->seeds)) << endl;
+        //     }
+        // }
+        cout << "Best action: " << action <<endl;
         maxDepth = 5;
+        timeoutMS = 50;
         #ifdef DEBUG
         is_start = false;
         #endif // #ifdef DEBUG
