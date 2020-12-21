@@ -16,7 +16,7 @@
 
 using namespace std;
 
-#define DEBUG
+#define DEBUGN
 
 #ifdef DEBUG
 #include <fstream>
@@ -34,6 +34,7 @@ uint64_t start;
 int loop_elapsed = 0;
 int maxDepth = 7;
 long nodeCount = 0;
+int my_score = 0, op_score = 0;
 
 void debug(string message)
 {
@@ -43,6 +44,7 @@ void debug(string message)
 struct Action {
     int lastActionId;
     int score;
+    int captures;
     vector<int> seeds;
 };
 
@@ -53,19 +55,24 @@ struct Node {
     int lastActionId;
     int depth;
     int score;
+    int pScore;
     int value;
+    int captures;
     vector<Node *> children;
+    Node *parent;
 };
 
  // Utility function to create a new tree node 
-Node *newNode(vector<int> seeds, int lastActionId, int depth, int score, int value) 
+Node *newNode(vector<int> seeds, int lastActionId, int depth, int score, int pScore, int value, int captures) 
 { 
     Node *temp = new Node; 
     temp->seeds = seeds; 
     temp->lastActionId = lastActionId; 
     temp->depth = depth; 
     temp->score = score; 
+    temp->pScore = pScore; 
     temp->value = value; 
+    temp->captures = captures; 
     return temp; 
 } 
   
@@ -165,7 +172,8 @@ void throwIfTimeout(int curMaxDepth)
     }
 }
 
-int maxValue(vector<Node *> const& nodeList) {
+//int maxValue(vector<Node *> const& nodeList) {
+int maxValue(vector<Node *> nodeList) {
     int maxValue = 0, value;
     for (int i = 0; i < nodeList.size(); i++) {
         value = nodeList[i]->value;
@@ -204,7 +212,7 @@ int evaluate(vector<int> const& seeds) {
     return score;
 }
 
-Action getActionScore(int id, vector<int> const& seeds)
+Action getActionScore(Node *node, int id, vector<int> const& seeds)
 {
     Action actionScoreResult;
     actionScoreResult.lastActionId = id;
@@ -223,7 +231,7 @@ Action getActionScore(int id, vector<int> const& seeds)
     while (6 <= j and j < 12 and (newSeeds[j] == 2 or newSeeds[j] == 3)) {
         captures += newSeeds[j];
         newSeeds[j] = 0;
-        j += 1;
+        j -= 1;
         consecutiveCaptures += 1;
     }
     int mySum, opSum, myNewSum, opNewSum;
@@ -235,6 +243,7 @@ Action getActionScore(int id, vector<int> const& seeds)
     if (opNewSum == 0) {
         actionScoreResult.score = -1000;
         actionScoreResult.seeds = newSeeds;
+        actionScoreResult.captures = captures;
         return actionScoreResult;
     }
     if ((opSum == 0 && opNewSum > 0) || (mySum > 0 and myNewSum == 0))
@@ -242,8 +251,16 @@ Action getActionScore(int id, vector<int> const& seeds)
     score += captures * 2 + consecutiveCaptures;
     score += evaluate(newSeeds) - evaluate(reverse(newSeeds));
     score += 1;
+    int fact;
+    // if (node->depth > 1)
+    //     fact = (node->pScore < node->parent->pScore) ? 3 : 1;
+    // else
+    //     fact = 1;
+    fact = (my_score > op_score) ? 3 : 1;
+    score -= id / fact;
     actionScoreResult.score = score;
     actionScoreResult.seeds = newSeeds;
+    actionScoreResult.captures = captures;
     return actionScoreResult;
 }
 
@@ -257,14 +274,21 @@ void buildGraph(Node *node) {
         vector<int> evalResult;
         for (int i = 0; i < 6; i++)
             if (node->seeds[i] > 0) {
-                Action action = getActionScore(i, node->seeds);
+                Action action = getActionScore(node, i, node->seeds);
                 if (action.score >= -100)
                     actions.push_back(action);
             }
         if (actions.empty())
             return;
+        int pScore = 0;
+        if (node->depth > 1) {
+            Node *parentNode = node->parent;
+            pScore = node->parent->pScore;
+        } 
         for (int i = 0; i < actions.size(); i++) {
-            Node *childNode = newNode(reverse(actions[i].seeds), actions[i].lastActionId, node->depth + 1, actions[i].score, actions[i].score);
+            int childScore = pScore + actions[i].captures;
+            Node *childNode = newNode(reverse(actions[i].seeds), actions[i].lastActionId, node->depth + 1, actions[i].score, childScore, actions[i].score, actions[i].captures);
+            childNode->parent = node;
             nodeCount += 1;
             (node->children).push_back(childNode); 
             buildGraph(childNode);
@@ -302,6 +326,7 @@ int main()
 
     // game loop
     bool is_start = true;
+    int sum_seeds = 48;
     while (is_start) {
         nodeCount = 0;
         start = millis();
@@ -312,7 +337,11 @@ int main()
             seeds[i] = s;
         }
         cerr << vector_to_str(seeds) <<endl;
-        Node *root = newNode(seeds, 0, 0, 0, 0); 
+
+        op_score += sum_seeds - sum(seeds, 0, 11);
+        sum_seeds = sum(seeds, 0, 11);
+
+        Node *root = newNode(seeds, 0, 0, 0, my_score, 0, 0);
         buildGraph(root);
         #ifdef DEBUG
         cerr << "Tree pring disabled" <<endl;
@@ -322,16 +351,17 @@ int main()
         vector<Node *> actionsCandidates;
         vector<Node *> nodeSelection;
         Node *bestNode;
-        int value, bestScore, bestValue;
+        int value, value1, value2, score, bestScore, bestValue;
         int max_value = -1000;
-        int min_value;
+        int min_value = -1000;
         int action;
         for (int i = 0; i < root->children.size(); i++) {
             Node *node = root->children[i];
-            value = miniMax(node, maxDepth, true);
-            min_value = -1000;
-            //value = alphaBeta(node, min_value);
-            if (value > max_value) {
+            //value1 = miniMax(node, maxDepth, true);
+            value2 = alphaBeta(node, min_value);
+            //value = (value1 > value2) ? value1: value2;
+            value = value2;
+            if (value >= max_value) {
                 max_value = value;
                 node->value = value;
                 actionsCandidates.push_back(node);
@@ -343,10 +373,10 @@ int main()
 
         cerr << "Max value: " << bestNode->value <<endl;
 
-        //if (actionsCandidates.size() == 0)  // no IA solution given in time, select best move by default
-        if (bestNode == nullptr)  // no IA solution given in time, select best move by default
+        if (actionsCandidates.empty())  // no IA solution given in time, select best move by default
+        //if (bestNode == nullptr)  // no IA solution given in time, select best move by default
             //if (!root->children.empty()) {
-            if (root->children.size() > 0) {
+            if (!root->children.empty()) {
                 bestScore = maxValue(root->children);
                 cerr << "Min Max Failed - bestScore = " << bestScore <<endl;
                 /* eprint("Min Max Failed - Action : {} - Score = {} - cpu_time: {:.2f} ms".format(best_node.last_action_id, best_node.score, elapsed_time)) */
@@ -354,10 +384,8 @@ int main()
                     if (root->children[i]->score == bestScore)
                         nodeSelection.push_back(root->children[i]);
                 }
-                cerr << "root->children.size() = " << (root->children).size() <<endl;
                 cerr << "nodeSelection.size() = " << nodeSelection.size() <<endl;
                 bestNode = nodeSelection[rand() % nodeSelection.size()];
-                cerr << "PROUT" <<endl;
                 action = bestNode->lastActionId;
                 cerr << "no IA solution given in time, select best move by default" << endl;
                 cerr << "action: " << bestNode->lastActionId << " - Seeds : " << vector_to_str(reverse(bestNode->seeds)) << endl;
@@ -370,42 +398,50 @@ int main()
                 action = randActionList[rand() % randActionList.size()];
                 cerr << "There was a bug!" <<endl;
             }
-        else
-        {
-            action = bestNode->lastActionId;
-        }
-        
-        // else {
-        //     bestValue = maxValue(actionsCandidates); // à debugger
-        //     cerr << "bestValue = " << bestValue <<endl;
-        //     vector<Node *> nodeSelectionFinal;
-        //     for (int i = 0; i < actionsCandidates.size(); i++) {
-        //         //cerr << i << " - score: " << actionsCandidates[i]->score <<endl;
-        //         if (actionsCandidates[i]->value == bestValue)
-        //             nodeSelectionFinal.push_back(actionsCandidates[i]);
-        //     }
-        //     //cerr << "nodeSelectionFinal.size() = " << nodeSelectionFinal.size() <<endl;
-        //     if (nodeSelectionFinal.empty()) {
-        //         vector<int> randActionList;
-        //         for (int i = 0; i < 6; i++)
-        //             if (seeds[i] > 0)
-        //                 randActionList.push_back(i);
-        //         action = randActionList[rand() % randActionList.size()];
-        //         cerr << "There was a bug!" <<endl;
-        //     }
-        //     else {
-        //         bestNode = nodeSelectionFinal[rand() % nodeSelectionFinal.size()];
-        //         action = bestNode->lastActionId;
-        //         cerr << "Min Max action: " << bestNode->lastActionId << " - Value: " << bestNode->value << " - Seeds : " << vector_to_str(reverse(bestNode->seeds)) << endl;
-        //     }
+        // {
+        //     action = bestNode->lastActionId;
         // }
-        cout << "Best action: " << action <<endl;
+        else {
+            bestValue = maxValue(actionsCandidates); // à debugger
+            vector<Node *> nodeSelectionFinal;
+            bestScore = -10000;
+            for (int i = 0; i < actionsCandidates.size(); i++) {
+                score = actionsCandidates[i]->score;
+                if (score >= bestScore)
+                    bestScore = score;
+            }
+            cerr << "bestValue = " << bestValue << " - bestScore = " << bestScore <<endl;
+            for (int i = 0; i < actionsCandidates.size(); i++) {
+                if (actionsCandidates[i]->value == bestValue && actionsCandidates[i]->score == bestScore) {
+                    nodeSelectionFinal.push_back(actionsCandidates[i]);
+                }
+            }
+            if (nodeSelectionFinal.empty()) {
+                vector<int> randActionList;
+                for (int i = 0; i < 6; i++)
+                    if (seeds[i] > 0)
+                        randActionList.push_back(i);
+                action = randActionList[rand() % randActionList.size()];
+                cerr << "There was a bug!" <<endl;
+            }
+            else {
+                bestNode = nodeSelectionFinal[rand() % nodeSelectionFinal.size()];
+                action = bestNode->lastActionId;
+                cerr << "Min Max action: " << bestNode->lastActionId << " - Value: " << bestNode->value << " - Seeds : " << vector_to_str(reverse(bestNode->seeds)) << endl;
+            }
+        }
+        cout << action <<endl;
         maxDepth = 5;
         timeoutMS = 50;
         #ifdef DEBUG
         is_start = false;
         #endif // #ifdef DEBUG
 
+        Action s_action = getActionScore(bestNode, action, seeds);
+        sum_seeds = sum(s_action.seeds, 0, 11);
+        //my_score += bestNode->pScore;
+        my_score += s_action.captures;
+        cerr << "My score: " << my_score << " - Op score: " << op_score << endl;
         uint64_t elapsed = millis() - start;
         cerr << "Node count: " << nodeCount << " - Time: " << elapsed << " ms" <<endl;
     }

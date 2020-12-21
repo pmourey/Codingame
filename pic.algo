@@ -1,0 +1,51 @@
+Fonction : calculPointsVictoires(classements) : entier
+Variables locales : var : type
+Données : param : type
+Début
+    Pour (i allant de 1 à 10): 
+        
+    Fin Pour
+Fin
+
+
+Début
+    jeu_de_plateau : tableau 2d
+    booleen flag
+    Structure: Joueur
+        nom : chaine de cara
+        age: entier
+        classement: type
+    Fin Structure
+    
+    Structure: Palmares
+        joueur : Joueur
+        annee: entier
+    Fin Structure
+    
+    Variables
+
+    Si (flag == VRAI)
+        
+    Fin Si
+    Sinon Si (conditon)
+        
+    Fin Si
+
+    Tant que (Age < 99)
+        Pour (i allant de 1 à 12): 
+            calculPointsVictoires(classement) 
+    Fin Pour
+    Pour (i allant de min à max): 
+        Faire
+
+        Tant que(Heure < 23)
+    Fin Pour
+
+    Pour (i allant de 1 à 5)
+        Pour (i allant de a à b)
+        
+    Fin Pour
+        
+    Fin Pour
+Fin
+

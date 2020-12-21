@@ -6,4 +6,6 @@ http://www.joansala.com/auale/strategy/en/
 
 http://ehess.modelisationsavoirs.fr/marc/publi/awele/
 
+https://tutorialspoint.dev/data-structure/advanced-data-structures/generic-tree-level-order-traversal
+
 Si toutes les maisons d'un adversaire sont vides, le joueur courant doit faire une action qui permettra à l'adversaire de jouer. Si une telle action n'est pas possible, alors le joueur courant remporte toutes les graines du jeu et la partie se termine.
