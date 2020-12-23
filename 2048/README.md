@@ -1,0 +1,1 @@
+https://www.codingame.com/ide/puzzle/2048
