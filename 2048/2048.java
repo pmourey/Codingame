@@ -6,16 +6,32 @@ import java.util.ArrayList;
 class Board {
     public final int SIZE = 4;
     long seed;
-    public int[][] grid = new int[SIZE][SIZE];
+    public int[][] grid;
     int score;
     private int moves;
+    private final String dirs = "URDL";
 
     public Board(long seed, int score, int[][] grid) {
         this.seed = seed;
-        this.score = 0;
+        this.score = score;
         this.grid = grid;
     }
 
+    private void spawnTile() {
+        ArrayList<Integer> freeCells = new ArrayList<>();
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) {
+                if (grid[x][y] == 0) freeCells.add(x + y * SIZE);
+            }
+        }
+
+        int spawnIndex = freeCells.get((int) seed % freeCells.size());
+        int value = (seed & 0x10) == 0 ? 2 : 4;
+
+        grid[spawnIndex % SIZE][spawnIndex / SIZE] = value;
+
+        seed = seed * seed % 50515093L;
+    }
 
     public int getScore() {
         return score;
@@ -37,7 +53,6 @@ class Board {
         for (int x = 0; x < SIZE; x++) {
             for (int y = 0; y < SIZE; y++) backup[x][y] = grid[x][y];
         }
-
         applyMove(dir);
         boolean changed = false;
         for (int x = 0; x < SIZE; x++) {
@@ -46,7 +61,6 @@ class Board {
                 grid[x][y] = backup[x][y];
             }
         }
-
         return changed;
     }
 
@@ -56,7 +70,6 @@ class Board {
         int targetStart = new int[]{0, SIZE - 1, SIZE * (SIZE - 1), 0}[dir];
         int targetStep = new int[]{1, SIZE, 1, SIZE}[dir];
         int sourceStep = new int[]{SIZE, -1, -SIZE, 1}[dir];
-
         for (int i = 0; i < SIZE; i++) {
             int finalTarget = targetStart + i * targetStep;
             for (int j = 1; j < SIZE; j++) {
@@ -66,7 +79,6 @@ class Board {
                 if (grid[sourceX][sourceY] == 0) continue;
                 for (int k = j - 1; k >= 0; k--) {
                     int intermediate = finalTarget + k * sourceStep;
-
                     int intermediateX = intermediate % SIZE;
                     int intermediateY = intermediate / SIZE;
                     if (grid[intermediateX][intermediateY] == 0) {
@@ -77,6 +89,7 @@ class Board {
                         sourceY = source / SIZE;
                     } else {
                         if (!merged[intermediateX][intermediateY] && grid[intermediateX][intermediateY] == grid[sourceX][sourceY]) {
+                            System.err.println("Direction = " + dirs.charAt(dir)+ " -> (" + intermediateX + "," + intermediateY + ") - Score = " + grid[intermediateX][intermediateY]*2 );
                             grid[sourceX][sourceY] = 0;
                             grid[intermediateX][intermediateY] *= 2;
                             merged[intermediateX][intermediateY] = true;
@@ -90,14 +103,12 @@ class Board {
         return turnScore;
     }
 
-    private final String dirs = "URDL";
-
     public char chooseBestAction() {
         int maxScore = 0, score;
         char bestDir = '\0';
         for (char c : dirs.toCharArray()) {
             score = getScore(c);
-            System.err.println("Direction: " + c + "- Score: " + score);
+            System.err.println("Direction: " + c + " - Score: " + score);
             if (score > maxScore) {
                 maxScore = score;
                 bestDir = c;
@@ -114,38 +125,38 @@ class Board {
         score = applyMove(dir);
         return score;
     }
-
-    public ArrayList<String> getInput() {
-        ArrayList<String> result = new ArrayList<>();
-        result.add(String.valueOf(seed));
-        result.add(String.valueOf(score));
-        for (int y = 0; y < SIZE; y++) {
-            String line = "";
-            for (int x = 0; x < SIZE; x++) line += grid[x][y] + " ";
-            result.add(line.trim());
-        }
-        return result;
-    }
 }
 
 
 class Player {
 
-    private final static String dirs = "URDL";
+    //private final static String dirs = "URDL";
+    final static String dirs = "URDL";
+    final static int SIZE = 4;
+
 
     public static char chooseBestAction(Board board) {
-        Board b = new Board(board.seed, board.score, board.grid);
-        int maxScore = 0, score;
+        //Board b = new Board(board.seed, 0, board.grid);
+        int[][] backup = new int[SIZE][SIZE];
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) backup[x][y] = board.grid[x][y];
+        }
+        int maxScore = 0;
+        int score = 0;
         char bestDir = '\0';
         for (char c : dirs.toCharArray()) {
-            score = b.getScore(c);
+            score = board.getScore(c);
             System.err.println("Direction: " + c + " - Score: " + score);
             if (score >= maxScore) {
                 maxScore = score;
                 bestDir = c;
             }
+            for (int x = 0; x < SIZE; x++) {
+                for (int y = 0; y < SIZE; y++) {
+                    board.grid[x][y] = backup[x][y];
+                }
+            }
         }
-        b = null;
         return bestDir;
     }
 
