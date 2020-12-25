@@ -17,7 +17,7 @@ class Board {
         this.grid = grid;
     }
 
-    private void spawnTile() {
+    void spawnTile() {
         ArrayList<Integer> freeCells = new ArrayList<>();
         for (int x = 0; x < SIZE; x++) {
             for (int y = 0; y < SIZE; y++) {
@@ -27,6 +27,7 @@ class Board {
 
         int spawnIndex = freeCells.get((int) seed % freeCells.size());
         int value = (seed & 0x10) == 0 ? 2 : 4;
+        //System.err.println("New Tile: " + spawnIndex + "/" + value);
 
         grid[spawnIndex % SIZE][spawnIndex / SIZE] = value;
 
@@ -64,7 +65,7 @@ class Board {
         return changed;
     }
 
-    private int applyMove(int dir) {
+    int applyMove(int dir) {
         int turnScore = 0;
         boolean[][] merged = new boolean[SIZE][SIZE];
         int targetStart = new int[]{0, SIZE - 1, SIZE * (SIZE - 1), 0}[dir];
@@ -89,7 +90,7 @@ class Board {
                         sourceY = source / SIZE;
                     } else {
                         if (!merged[intermediateX][intermediateY] && grid[intermediateX][intermediateY] == grid[sourceX][sourceY]) {
-                            System.err.println("Direction = " + dirs.charAt(dir)+ " -> (" + intermediateX + "," + intermediateY + ") - Score = " + grid[intermediateX][intermediateY]*2 );
+                            //System.err.println("Direction = " + dirs.charAt(dir)+ " -> (" + intermediateX + "," + intermediateY + ") - Score = " + grid[intermediateX][intermediateY]*2 );
                             grid[sourceX][sourceY] = 0;
                             grid[intermediateX][intermediateY] *= 2;
                             merged[intermediateX][intermediateY] = true;
@@ -108,7 +109,6 @@ class Board {
         char bestDir = '\0';
         for (char c : dirs.toCharArray()) {
             score = getScore(c);
-            System.err.println("Direction: " + c + " - Score: " + score);
             if (score > maxScore) {
                 maxScore = score;
                 bestDir = c;
@@ -133,10 +133,10 @@ class Player {
     //private final static String dirs = "URDL";
     final static String dirs = "URDL";
     final static int SIZE = 4;
-
+    final static int ACTIONS_PER_TURN = 9;
+    final static int MAX_TIME = 50;
 
     public static char chooseBestAction(Board board) {
-        //Board b = new Board(board.seed, 0, board.grid);
         int[][] backup = new int[SIZE][SIZE];
         for (int x = 0; x < SIZE; x++) {
             for (int y = 0; y < SIZE; y++) backup[x][y] = board.grid[x][y];
@@ -146,7 +146,6 @@ class Player {
         char bestDir = '\0';
         for (char c : dirs.toCharArray()) {
             score = board.getScore(c);
-            System.err.println("Direction: " + c + " - Score: " + score);
             if (score >= maxScore) {
                 maxScore = score;
                 bestDir = c;
@@ -162,12 +161,19 @@ class Player {
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
+        int MAX_TIME = 1000;
+        long start, end, elapsedTime = 0;
 
         // game loop
         while (true) {
             long seed = in.nextInt(); // needed to predict the next spawns
             int score = in.nextInt();
             int[][] grid = new int[4][4];
+            int actionsCount = 0;
+            int dir;
+            String result = "";
+
+            start = System.currentTimeMillis();
 
             for (int i = 0; i < 4; i++) {
                 for (int j = 0; j < 4; j++) {
@@ -177,9 +183,31 @@ class Player {
                 }
             }
             Board b = new Board(seed, score, grid);
-            System.err.println(Arrays.deepToString(b.grid));
-            System.out.println(chooseBestAction(b));
+            char action = chooseBestAction(b);
+/*            dir = dirs.indexOf(action);
+            score = b.applyMove(dir);
+            //System.err.println("New board: \n" + Arrays.deepToString(grid));
+            b.spawnTile();
+            System.err.printf("Action: %d - Dir: %s - score: %d - Elapsed Time: %d ms\n", actionsCount, dir, score, elapsedTime);
+            result = Character.toString(action);
+            actionsCount++;
+            */
+            end = System.currentTimeMillis();
+            elapsedTime = end - start;
+            while (action != '\0' && elapsedTime < MAX_TIME) {
+                result += Character.toString(action);
+                actionsCount++;
+                dir = dirs.indexOf(action);
+                score = b.applyMove(dir);
+                b.spawnTile();
+                end = System.currentTimeMillis();
+                elapsedTime = end - start;
+                action = chooseBestAction(b);
+            }
+            System.err.printf("Actions count: %d - Elapsed Time: %d ms\n", actionsCount, elapsedTime);
+            System.out.println(result);
             b = null;
+            MAX_TIME = 50;
         }
     }
 }
