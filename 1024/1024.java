@@ -1,6 +1,4 @@
 import java.util.*;
-import java.io.*;
-import java.math.*;
 import java.util.ArrayList;
 
 class MyTreeNode<T> {
@@ -97,7 +95,7 @@ class Board {
         this.grid = grid;
     }
 
-    int spawnTile() {
+    void spawnTile() {
         ArrayList<Integer> freeCells = new ArrayList<>();
         for (int x = 0; x < SIZE; x++) {
             for (int y = 0; y < SIZE; y++) {
@@ -112,7 +110,7 @@ class Board {
         grid[spawnIndex % SIZE][spawnIndex / SIZE] = value;
 
         seed = seed * seed % 50515093L;
-        return value;
+        //return value;
     }
 
     public int getScore() {
@@ -185,18 +183,59 @@ class Board {
         return turnScore;
     }
 
-    public char chooseBestAction() {
-        int maxScore = 0, score;
+    // version without simulation: get best action at each round without predicting new states
+    char chooseBestAction() {
+        int[][] backup = new int[SIZE][SIZE];
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) backup[x][y] = this.grid[x][y];
+        }
+        int maxScore = 0;
+        int score = 0;
         char bestDir = '\0';
         for (char c : dirs.toCharArray()) {
-            score = getScore(c);
-            if (score > maxScore) {
+            score = this.getScore(c);
+            if (score >= maxScore) {
                 maxScore = score;
                 bestDir = c;
+            }
+            for (int x = 0; x < SIZE; x++) {
+                for (int y = 0; y < SIZE; y++) {
+                    this.grid[x][y] = backup[x][y];
+                }
             }
         }
         return bestDir;
     }
+
+    public List<Map.Entry<Character, Integer>> chooseTwoBestAction() {
+        int[][] backup = new int[SIZE][SIZE];
+        Map<Character, Integer> scores = new HashMap<>();
+
+        for (int x = 0; x < SIZE; x++) {
+            for (int y = 0; y < SIZE; y++) backup[x][y] = this.grid[x][y];
+        }
+        int score = 0;
+        for (char c : dirs.toCharArray()) {
+            score = this.getScore(c);
+            scores.put(c, score);
+            for (int x = 0; x < SIZE; x++) {
+                for (int y = 0; y < SIZE; y++) {
+                    this.grid[x][y] = backup[x][y];
+                }
+            }
+        }
+        List<Map.Entry<Character, Integer>> result = new ArrayList<Map.Entry<Character, Integer>>();
+        List<Map.Entry<Character, Integer>> entries = new ArrayList<Map.Entry<Character, Integer>>(scores.entrySet());
+        Collections.sort(entries, new Comparator<Map.Entry<Character, Integer>>() {
+            public int compare(Map.Entry<Character, Integer> e1, Map.Entry<Character, Integer> e2) {
+                return e1.getValue().compareTo(e2.getValue());
+            }
+        });
+        result.add(entries.get(2));
+        result.add(entries.get(3));
+        return result;
+    }
+
 
     public int getScore(char action) {
         int dir = dirs.indexOf(action);
@@ -214,84 +253,25 @@ class Player {
     final static String dirs = "URDL";
     final static int SIZE = 4;
     static int MAX_DEPTH = 14;
-    static int nodesCount = 0;
     static long maxScore = 0;
     static int roundCount = 0, actionCount = 0;
-    static MyTreeNode<GameState> bestNode, node;
-    static boolean codingameFlag = false;
+    static int nodesCount = 0;
+    static MyTreeNode<GameState> destNode, currNode;
+    static boolean codingameFlag = true; // set flag to false to run it locally...
 
 
-    // version without simulation: get best action at each round without predicting new states
-/*    public static char chooseBestAction(Board board) {
-        int[][] backup = new int[SIZE][SIZE];
-        for (int x = 0; x < SIZE; x++) {
-            for (int y = 0; y < SIZE; y++) backup[x][y] = board.grid[x][y];
-        }
-        int maxScore = 0;
-        int score = 0;
-        char bestDir = '\0';
-        for (char c : dirs.toCharArray()) {
-            score = board.getScore(c);
-            if (score >= maxScore) {
-                maxScore = score;
-                bestDir = c;
-            }
-            for (int x = 0; x < SIZE; x++) {
-                for (int y = 0; y < SIZE; y++) {
-                    board.grid[x][y] = backup[x][y];
-                }
-            }
-        }
-        return bestDir;
-    }*/
-
-
-    public static List<Map.Entry<Character, Integer>> chooseTwoBestAction(Board board) {
-        int[][] backup = new int[SIZE][SIZE];
-        //char[] actions = new char[2];
-        //int[] scores = new int[4];
-        List<Character> actions = new ArrayList<>();
-        Map<Character, Integer> scores = new HashMap<>();
-
-        int dir;
-        for (int x = 0; x < SIZE; x++) {
-            for (int y = 0; y < SIZE; y++) backup[x][y] = board.grid[x][y];
-        }
-        int maxScore = 0;
-        int score = 0;
-        char bestDir = '\0';
-        for (char c : dirs.toCharArray()) {
-            score = board.getScore(c);
-            dir = dirs.indexOf(c);
-            scores.put(c, score);
-            for (int x = 0; x < SIZE; x++) {
-                for (int y = 0; y < SIZE; y++) {
-                    board.grid[x][y] = backup[x][y];
-                }
-            }
-        }
-        List<Map.Entry<Character, Integer>> result = new ArrayList<Map.Entry<Character, Integer>>();
-        List<Map.Entry<Character, Integer>> entries = new ArrayList<Map.Entry<Character, Integer>>(scores.entrySet());
-        Collections.sort(entries, new Comparator<Map.Entry<Character, Integer>>() {
-            public int compare(Map.Entry<Character, Integer> e1, Map.Entry<Character, Integer> e2) {
-                return e1.getValue().compareTo(e2.getValue());
-            }
-        });
-        result.add(entries.get(2));
-        result.add(entries.get(3));
-        return result;
-    }
-
-    // Create the tree of all possibles actions
+    // Create a tree of possible best actions (limited to 2 out of 4 for performance reason)
+    // TODO: improve the heuristic function (?)
+    // TODO: improve algorithm to use beam search
     public static void buildTree(MyTreeNode node, GameState gs) {
         int turnScore;
         if (gs.depth > MAX_DEPTH)
             return;
         if (gs.board.score > maxScore && gs.depth == MAX_DEPTH) {
-            bestNode = node;
+            destNode = node;
             maxScore = gs.board.score;
         }
-        for (Map.Entry<Character, Integer> action : chooseTwoBestAction(gs.board)) {
+        for (Map.Entry<Character, Integer> action : gs.board.chooseTwoBestAction()) {
             if (action.getValue() > -1) {
                 int[][] grid = new int[SIZE][SIZE];
                 for (int x = 0; x < SIZE; x++) {
@@ -303,8 +283,8 @@ class Player {
                 turnScore = board.getScore(action.getKey());
                 if (turnScore > -1) {
                     GameState newGs = new GameState(board, action.getKey(), turnScore, gs.depth);
-                    int value = newGs.board.spawnTile();
-                    newGs.board.score = gs.board.score + turnScore + value;
+                    newGs.board.spawnTile();
+                    newGs.board.score = gs.board.score + turnScore;
                     newGs.depth += 1;
                     MyTreeNode<GameState> childNode = new MyTreeNode<GameState>(newGs);
                     nodesCount++;
@@ -316,15 +296,18 @@ class Player {
     }
 
     public static void debug(long seed, int score, int[][] grid) {
-        System.err.println(seed);
-        System.err.println(score);
-        for (int y = 0; y < SIZE; y++) {
-            for (int x = 0; x < SIZE; x++) {
-                System.err.print(grid[y][x] + " ");
-            }
-            System.err.println();
+        ArrayList<String> result = new ArrayList<>();
+        result.add(String.valueOf(seed));
+        result.add(String.valueOf(score));
+        for (int x = 0; x < SIZE; x++) {
+            String line = "";
+            for (int y = 0; y < SIZE; y++) line += grid[x][y] + " ";
+            result.add(line.trim());
         }
+        System.err.println(result);
     }
+
+    // debugging function used to verify score calculations performed in simulation
     public static int calcScore(int[][] grid) {
         int score = 0;
         for (int x = 0; x < SIZE; x++) {
@@ -337,86 +320,77 @@ class Player {
 
     public static void main(String args[]) {
         Scanner in = new Scanner(System.in);
-        int MAX_TIME = 1000;
         long start = 0, end, elapsedTime = 0;
         boolean isStart = true;
         int[][] newGrid = new int[4][4];
         int[][] grid = new int[4][4];
         int score, newScore = 0;
         long seed, newSeed = 0;
-        String result = "";
-
+        ArrayList<Character> actionsResult = new ArrayList<>();
 
         // game loop
         while (true) {
             roundCount++;
-            start = System.currentTimeMillis();
+            actionsResult.clear();
             if (isStart || codingameFlag) {
                 seed = in.nextInt(); // needed to predict the next spawns
                 score = in.nextInt();
-                int actionsCount = 0;
-                int dir;
-                result = "";
 
                 for (int i = 0; i < 4; i++) {
                     for (int j = 0; j < 4; j++) {
                         int cell = in.nextInt();
-                        grid[i][j] = cell;
+                        grid[j][i] = cell;
                     }
                 }
-                debug(seed, score, grid);
                 isStart = false;
-            }
-            else {
+            } else {
                 seed = newSeed; // needed to predict the next spawns
                 score = newScore;
                 grid = newGrid;
-                result = "";
             }
+            // start = System.currentTimeMillis();
+            // debug(seed, score, grid);
             Board b = new Board(seed, score, grid);
             GameState gs_start = new GameState(b, '\0', score, 0);
             MyTreeNode<GameState> root = new MyTreeNode<GameState>(gs_start);
-            System.err.printf("Building tree! (depth = %d)\n", MAX_DEPTH);
-            nodesCount = 0;
+            // nodesCount = 0;
             buildTree(root, gs_start);
-            end = System.currentTimeMillis();
-            elapsedTime = end - start;
-            System.err.printf("Build Tree finished! (nodes = %d) - Elapsed Time: %d ms\n", nodesCount, elapsedTime);
-
-            node = bestNode;
-            while (node.getParent() != null) {
-                result += Character.toString(node.getData().action);
-                node = node.getParent();
+            if (destNode == null)
+                System.out.println(b.chooseBestAction());
+            else {
+                currNode = destNode;
+                while (currNode.getParent() != null) {
+                    actionsResult.add(currNode.getData().action);
+                    currNode = currNode.getParent();
+                }
+                ArrayList<Character> actionsResultReverse = new ArrayList<>();
+                for (int i = actionsResult.size() - 1; i >= 0; i--)
+                    actionsResultReverse.add(actionsResult.get(i));
+                actionsResult = actionsResultReverse;
+                // Print the actions to console
+                // System.err.println(actionsResult.toString());
+                // System.err.println(actionsResult.toString().replaceAll("[,\\s\\[\\]]", ""));
+                if (codingameFlag)
+                    System.out.println(actionsResult.toString().replaceAll("[,\\s\\[\\]]", ""));
+                else
+                    System.err.println(actionsResult);
+                maxScore = 0;
+                MAX_DEPTH = 10;
+                actionCount += actionsResult.size();
+                newSeed = destNode.getData().board.seed;
+                newScore = destNode.getData().board.score;
+                newGrid = destNode.getData().board.grid;
+                // debug(newSeed, newScore, newGrid);
+                // Futile attempt to tell java garbage collector to delete my references :-DDD
+                b = null;
+                gs_start = null;
+                root = null;
+                destNode = null;
+                currNode = null;
+                // end = System.currentTimeMillis();
+                // elapsedTime = end - start;
+                // System.err.printf("Action print finished! action score: %d - (nodes = %d) - Total score: %d - Round n° %d - Actions count: %d - Elapsed Time: %d ms\n", maxScore, nodesCount, calcScore(destNode.getData().board.grid), roundCount, actionCount, elapsedTime);
             }
- /*           char action = chooseBestAction(b);
-            end = System.currentTimeMillis();
-            elapsedTime = end - start;
-            while (action != '\0' && elapsedTime < MAX_TIME) {
-                result += Character.toString(action);
-                actionsCount++;
-                dir = dirs.indexOf(action);
-                score = b.applyMove(dir);
-                b.spawnTile();
-                end = System.currentTimeMillis();
-                elapsedTime = end - start;
-                action = chooseBestAction(b);
-            }*/
-            System.out.println(result);
-            end = System.currentTimeMillis();
-            elapsedTime = end - start;
-            newSeed = bestNode.getData().board.seed;
-            newScore = bestNode.getData().board.score;
-            newGrid = bestNode.getData().board.grid;
-            debug(newSeed, newScore, newGrid);
-            actionCount += result.length();
-            System.err.printf("Action print finished! action score: %d - (nodes = %d) - Total score: %d - Round n° %d - Actions count: %d - Elapsed Time: %d ms\n", maxScore, nodesCount, calcScore(bestNode.getData().board.grid), roundCount, actionCount, elapsedTime);
-            b = null;
-            root = null;
-            gs_start = null;
-            bestNode = null;
-            node = null;
-            maxScore = 0;
-            MAX_DEPTH = 11;
         }
     }
 }
