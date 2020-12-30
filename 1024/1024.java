@@ -44,23 +44,21 @@ class MyTreeNode<T> {
     }
 
     public MyTreeNode getParent() {
-        return this.parent;
+        return parent;
     }
 }
 
 class GameState {
     Board board;
     char action;
-    int turnScore;
     int depth;
     long value;
     final static int SIZE = 4;
     private final String dirs = "URDL";
 
-    public GameState(Board b, char action, int turnScore, int depth) {
+    public GameState(Board b, char action, int depth) {
         this.board = b;
         this.action = action;
-        this.turnScore = turnScore;
         this.depth = depth;
     }
 
@@ -82,9 +80,9 @@ class GameState {
 }
 
 class Board {
-    public final int SIZE = 4;
+    private final int SIZE = 4;
     long seed;
-    public int[][] grid;
+    int[][] grid;
     int score;
     private int moves;
     private final String dirs = "URDL";
@@ -242,7 +240,7 @@ class Board {
         if (!canMove(dir)) {
             return -1; // ignore remaining plans
         }
-        score = applyMove(dir);
+        int score = applyMove(dir);
         return score;
     }
 }
@@ -256,7 +254,7 @@ class Player {
     static long maxScore = 0;
     static int roundCount = 0, actionCount = 0;
     static int nodesCount = 0;
-    static MyTreeNode<GameState> destNode, currNode;
+    static MyTreeNode<GameState> destNode, currNode, destNodeParent;
     static boolean codingameFlag = true; // set flag to false to run it locally...
 
 
@@ -269,6 +267,7 @@ class Player {
             return;
         if (gs.board.score > maxScore && gs.depth == MAX_DEPTH) {
             destNode = node;
+            destNodeParent = destNode.getParent();
             maxScore = gs.board.score;
         }
         for (Map.Entry<Character, Integer> action : gs.board.chooseTwoBestAction()) {
@@ -279,12 +278,12 @@ class Player {
                         grid[x][y] = gs.board.grid[x][y];
                     }
                 }
-                Board board = new Board(gs.board.seed, gs.board.score, grid);
-                turnScore = board.getScore(action.getKey());
+                Board newBoard = new Board(gs.board.seed, gs.board.score, grid);
+                turnScore = newBoard.getScore(action.getKey());
+                newBoard.score += turnScore;
                 if (turnScore > -1) {
-                    GameState newGs = new GameState(board, action.getKey(), turnScore, gs.depth);
+                    GameState newGs = new GameState(newBoard, action.getKey(), gs.depth);
                     newGs.board.spawnTile();
-                    newGs.board.score = gs.board.score + turnScore;
                     newGs.depth += 1;
                     MyTreeNode<GameState> childNode = new MyTreeNode<GameState>(newGs);
                     nodesCount++;
@@ -348,16 +347,19 @@ class Player {
                 score = newScore;
                 grid = newGrid;
             }
-            // start = System.currentTimeMillis();
             // debug(seed, score, grid);
             Board b = new Board(seed, score, grid);
-            GameState gs_start = new GameState(b, '\0', score, 0);
+            GameState gs_start = new GameState(b, '\0', 0);
             MyTreeNode<GameState> root = new MyTreeNode<GameState>(gs_start);
-            // nodesCount = 0;
+            nodesCount = 0;
             buildTree(root, gs_start);
-            if (destNode == null)
+            if (destNode == null) {
                 System.out.println(b.chooseBestAction());
+                if (!codingameFlag)
+                    break;
+            }
             else {
+                start = System.currentTimeMillis();
                 currNode = destNode;
                 while (currNode.getParent() != null) {
                     actionsResult.add(currNode.getData().action);
@@ -374,22 +376,22 @@ class Player {
                     System.out.println(actionsResult.toString().replaceAll("[,\\s\\[\\]]", ""));
                 else
                     System.err.println(actionsResult);
-                maxScore = 0;
                 MAX_DEPTH = 10;
                 actionCount += actionsResult.size();
                 newSeed = destNode.getData().board.seed;
                 newScore = destNode.getData().board.score;
                 newGrid = destNode.getData().board.grid;
-                // debug(newSeed, newScore, newGrid);
+                debug(newSeed, newScore, newGrid);
+                end = System.currentTimeMillis();
+                elapsedTime = end - start;
+                System.err.printf("Action print finished! (nodes = %d) - Total score: %d - Round n° %d - Actions count: %d - Elapsed Time: %d ms\n", nodesCount, newScore, roundCount, actionCount, elapsedTime);
                 // Futile attempt to tell java garbage collector to delete my references :-DDD
+                maxScore = 0;
                 b = null;
                 gs_start = null;
                 root = null;
                 destNode = null;
                 currNode = null;
-                // end = System.currentTimeMillis();
-                // elapsedTime = end - start;
-                // System.err.printf("Action print finished! action score: %d - (nodes = %d) - Total score: %d - Round n° %d - Actions count: %d - Elapsed Time: %d ms\n", maxScore, nodesCount, calcScore(destNode.getData().board.grid), roundCount, actionCount, elapsedTime);
             }
         }
     }
