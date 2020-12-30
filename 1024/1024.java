@@ -250,7 +250,9 @@ class Player {
 
     final static String dirs = "URDL";
     final static int SIZE = 4;
-    static int MAX_DEPTH = 14;
+    static int MAX_DEPTH_START = 20;    // 14 in codingame
+    static int MAX_DEPTH = 16;  // 10 for codingame
+    static int maxDepth = MAX_DEPTH_START;
     static long maxScore = 0;
     static int roundCount = 0, actionCount = 0;
     static int nodesCount = 0;
@@ -263,9 +265,9 @@ class Player {
     // TODO: improve algorithm to use beam search
     public static void buildTree(MyTreeNode node, GameState gs) {
         int turnScore;
-        if (gs.depth > MAX_DEPTH)
+        if (gs.depth > maxDepth)
             return;
-        if (gs.board.score > maxScore && gs.depth == MAX_DEPTH) {
+        if (gs.board.score > maxScore && gs.depth == maxDepth) {
             destNode = node;
             destNodeParent = destNode.getParent();
             maxScore = gs.board.score;
@@ -329,6 +331,7 @@ class Player {
 
         // game loop
         while (true) {
+            start = System.currentTimeMillis();
             roundCount++;
             actionsResult.clear();
             if (isStart || codingameFlag) {
@@ -359,7 +362,6 @@ class Player {
                     break;
             }
             else {
-                start = System.currentTimeMillis();
                 currNode = destNode;
                 while (currNode.getParent() != null) {
                     actionsResult.add(currNode.getData().action);
@@ -376,7 +378,7 @@ class Player {
                     System.out.println(actionsResult.toString().replaceAll("[,\\s\\[\\]]", ""));
                 else
                     System.err.println(actionsResult);
-                MAX_DEPTH = 10;
+                maxDepth = MAX_DEPTH;
                 actionCount += actionsResult.size();
                 newSeed = destNode.getData().board.seed;
                 newScore = destNode.getData().board.score;
