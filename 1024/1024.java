@@ -255,7 +255,7 @@ class Player {
     static int roundCount = 0, actionCount = 0;
     static int nodesCount = 0;
     static MyTreeNode<GameState> destNode, currNode, destNodeParent;
-    static boolean codingameFlag = true; // set flag to false to run it locally...
+    static boolean codingameFlag = false; // set flag to false to run it locally...
 
 
     // Create a tree of possible best actions (limited to 2 out of 4 for performance reason)
@@ -347,7 +347,7 @@ class Player {
                 score = newScore;
                 grid = newGrid;
             }
-            // debug(seed, score, grid);
+            debug(seed, score, grid);
             Board b = new Board(seed, score, grid);
             GameState gs_start = new GameState(b, '\0', 0);
             MyTreeNode<GameState> root = new MyTreeNode<GameState>(gs_start);
